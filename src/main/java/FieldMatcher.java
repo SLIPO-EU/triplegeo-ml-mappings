@@ -1,53 +1,158 @@
+import com.opencsv.CSVIterator;
+import com.opencsv.CSVReader;
+import org.apache.commons.lang3.StringUtils;
 import org.yaml.snakeyaml.Yaml;
-import weka.classifiers.evaluation.Evaluation;
-import weka.classifiers.functions.Logistic;
-import weka.core.Attribute;
-import weka.core.DenseInstance;
-import weka.core.Instance;
-import weka.core.Instances;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
+/* Class that produces predicate matchings for each column of a new csv file.
+The class maintains a binary classifier for each predicate. Performs two
+functions: 1) trains the models given a set of csvs and mappings and
+2) predicts the mappings of a new csv based on the trained models */
 public class FieldMatcher {
 
     ArrayList<Predicate> predicates;
     ArrayList<Field> fields;
-
-    Logistic mdl;
-    Instances trainSet;
-
 
     public FieldMatcher(){
         predicates = new ArrayList<Predicate>();
         fields = new ArrayList<Field>();
     }
 
-    public void readSingleDataset(String yamlPath, String csvPath){
+   //reads dataset, adds observed predicates and fields
+   public void readSingleDataset(String yamlPath, String csvPath) throws IOException {
 
+        //reads everything
         Yaml yaml = new Yaml();
-        InputStream inputStream = null;
-        try {
-           inputStream = new FileInputStream(yamlPath);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-
+        InputStream inputStream = new FileInputStream(yamlPath);
+        FileReader filereader = new FileReader(csvPath);
         Map<String, Object> data = yaml.load(inputStream);
         Set<String> keys = data.keySet();
+        CSVReader csvReader = new CSVReader(filereader,'|');
+        String[] fieldNames = csvReader.readNext();
 
+        //produces features from field content
+        boolean[][] feats = scanCSV(csvReader,fieldNames);
+
+        //for each csv field add to fields and predicates
         for(String key:keys) {
             Map<String, String> attrs = (Map<String, String>) data.get(key);
             if (!predicateExists(attrs))
                 addToPredicates(attrs);
-            addToFields(key, attrs);
+            addToFields(key, attrs, feats[whichEquals(fieldNames,key)]);
         }
 
     }
 
-     private void addToFields(String key, Map<String,String> attrs) {
-        Field fld = new Field(key,attrs);
+    //creates features from the contents of each field
+    private boolean[][] scanCSV(CSVReader csvReader, String[] fieldNames) throws IOException {
+        int fieldNum = fieldNames.length;
+        double[][] stats = new double[fieldNum][7];
+        CSVIterator csvIter = new CSVIterator(csvReader);
+        String[] nxt = null;
+        HashSet<String> hs = new HashSet<String>();
+        double[] count = new double[fieldNum];
+        for(int i=0;i<1000 && csvIter.hasNext();i++){
+            nxt = csvIter.next();
+            for(int j=0;j<fieldNum;j++) {
+                if(!nxt[j].equals("")) {
+                    count[j]++;
+                    stats[j][0] += isInteger(nxt[j]);
+                    stats[j][1] += isDouble(nxt[j]);
+                    stats[j][2] += isChar(nxt[j]);
+                    stats[j][3] += isMixed(nxt[j]);
+                    stats[j][4] += hasAt(nxt[j]);
+                    stats[j][5] += hasInternet(nxt[j]);
+                    stats[j][6] += isDistinct(nxt[j], hs);
+                }
+            }
+        }
+
+        boolean[][] feats = new boolean[fieldNum+1][7];
+        for(int i=0;i<fieldNum;i++)
+            for(int j=0;j<7;j++)
+                if(j!=6 && stats[i][j]>count[i]/2 || j==6 && stats[i][j]<count[i]/10)
+                    feats[i][j] = true;
+        return feats;
+    }
+
+    private double isMixed(String s) {
+        s = s.replaceAll("[()\\s-]+", "");
+        if(!StringUtils.isNumeric(s) && !StringUtils.isAlpha(s) && StringUtils.isAlphanumeric(s) )
+            return 1;
+        else
+            return 0;
+    }
+
+    private int isInteger(String s) {
+        s = s.replaceAll("[()\\s-]+", "");
+        try {
+            double num = Double.parseDouble(s);
+            if (Math.floor(num) == num && !Double.isInfinite(num))
+                return 1;
+            else
+                return 0;
+        }
+        catch(Exception e){
+            return 0;
+        }
+
+    }
+
+    private int isDouble(String s) {
+        s = s.replaceAll("[()\\s-]+", "");
+        try {
+            double num = Double.parseDouble(s);
+            if (Math.floor(num) != num && !Double.isInfinite(num))
+                return 1;
+            else
+                return 0;
+        }
+        catch (Exception e){
+            return 0;
+        }
+    }
+
+    private int isChar(String s) {
+        s = s.replaceAll("[()\\s-]+", "");
+        if(StringUtils.isAlpha(s))
+            return 1;
+        else
+            return 0;
+    }
+
+    private int hasAt(String s) {
+        if(s.contains("@"))
+            return 1;
+        else
+            return 0;
+    }
+
+    private int hasInternet(String s) {
+        if(s.contains("www") || s.contains("http"))
+            return 1;
+        else
+            return 0;
+    }
+
+    private int isDistinct(String s, HashSet<String> hs) {
+    if(hs.contains(s))
+        return 0;
+    else {
+        hs.add(s);
+        return 1;
+        }
+    }
+
+    private int whichEquals(String[] fieldNames, String key) {
+        for(int i=0;i<fieldNames.length;i++)
+            if(fieldNames[i].toUpperCase().equals(key.toUpperCase()))
+                return i;
+        return fieldNames.length;
+    }
+
+    private void addToFields(String key, Map<String,String> attrs, boolean[] feats) {
+        Field fld = new Field(key,attrs,feats);
         fields.add(fld);
         updateKeywords(fld);
     }
@@ -70,72 +175,14 @@ public class FieldMatcher {
                 return true;
         return false;
     }
-
+    //trains one classifier for each predicate
     public void trainClassifiers(){
-      // trainSingleMdl();
-         for(Predicate pred:predicates)
-             pred.trainClassifier(fields);
-    }
-
-    public void trainSingleMdl(){
-
-        mdl = new Logistic();
-        mdl.setRidge(0);
-        ArrayList<Attribute> trainAtts = new ArrayList<Attribute>();
-
         for(Predicate pred:predicates)
-            for (String kw : pred.getKeywordsUnique())
-                trainAtts.add(new Attribute(kw + "Sim"));
-
-        trainAtts.add(new Attribute("MatchLabel", getAllPredNames()));
-
-        trainSet = new Instances("data", trainAtts, 0);
-        trainSet.setClass(trainAtts.get(trainAtts.size()-1));
-
-        Instance inst;
-        ArrayList<Double> sims;
-        for (Field fld : fields) {
-            sims = new ArrayList<Double>();
-            for (Predicate pred : predicates) {
-                int count=0;
-                for (String kw : pred.getKeywordsUnique()) {
-                    if(fld.getName().equals(kw) && count==0) {
-                        sims.add(0.0);
-                        count++;
-                    }
-                    else
-                        sims.add(BigramSimCalculator.calcBigramSim(fld.getName(), kw));
-                }
-            }
-            inst = new DenseInstance(sims.size() + 1);
-            inst.setDataset(trainSet);
-            for (int i = 0; i < sims.size(); i++)
-                inst.setValue(i, sims.get(i));
-            inst.setValue(sims.size(), fld.getMatchingPred());
-            trainSet.add(inst);
-        }
-        try {
-            mdl.buildClassifier(trainSet);
-            performBigCV();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            pred.trainClassifier(fields);
     }
 
-    public void performBigCV(){
-        Logistic mdl = new Logistic();
-        Evaluation eval = null;
-        try {
-            eval = new Evaluation(trainSet);
-            eval.crossValidateModel(mdl, trainSet, trainSet.size(), new Random(1));
-            System.out.println(eval.toSummaryString());
-            System.out.println(eval.toMatrixString());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-    }
-
+    //for a given input field, runs the classifiers for each predicate
+    //and selects the one that returns the highest matching probability
     public String predict(Field fld){
         double[] probs = new double[predicates.size()];
         for(int i=0;i<predicates.size();i++)
@@ -144,26 +191,19 @@ public class FieldMatcher {
         int maxInd = -1;
         for(int i=0;i<probs.length;i++)
             if(probs[i]>max){
-            max = probs[i];
-            maxInd = i;
+                max = probs[i];
+                maxInd = i;
             }
         return(predicates.get(maxInd).getName());
     }
 
-    private ArrayList<String> getAllPredNames() {
-        ArrayList<String> allPredNames = new ArrayList<String>();
-        for(Predicate pred:predicates)
-            allPredNames.add(pred.getName());
-        return(allPredNames);
-    }
-
-    public double evaluate() {
+    //evaluates the model through leave-one-out cross validation
+    public double evaluate(String outPath) {
         Field test = null;
         ArrayList<String> preds = new ArrayList<String>();
         String pred;
         double acc = 0;
         for (int i = 0; i < fields.size(); i++) {
-            System.out.println(i);
             test = removeField(fields,i);
             trainClassifiers();
             pred = predict(test);
@@ -171,12 +211,57 @@ public class FieldMatcher {
                 acc++;
             preds.add(predict(test));
             reAddField(fields,test,i);
-
         }
         acc /= fields.size();
         System.out.println(acc);
+        PrintWriter pw = null;
+        try {
+            pw = new PrintWriter(outPath);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        for(int i=0;i<fields.size();i++)
+            pw.println(fields.get(i).getName()+" -> "+preds.get(i));
+        pw.close();
         return (acc);
     }
+
+   /* private void printConfusionMatrix(ArrayList<Field> fields, ArrayList<String> preds,double acc) {
+        double[][] confMat = new double[predicates.size()][predicates.size()];
+        for (int i = 0; i < fields.size(); i++) {
+            confMat[findInPredicates(predicates, fields.get(i).getMatchingPred())][findInPredicates(predicates, preds.get(i))]++;
+        }
+        PrintWriter pw = null;
+        try {
+            pw = new PrintWriter("/home/pant/Desktop/slipo/out");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        for (int i = 0; i < confMat.length; i++) {
+            for (int j = 0; j < confMat.length; j++){
+                pw.print(confMat[i][j]);
+                pw.print(" ");
+            }
+            pw.println();
+        }
+        pw.close();
+        try {
+            pw = new PrintWriter("/home/pant/Desktop/slipo/preds");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        for(Predicate pred:predicates)
+            pw.println(pred.getName());
+        pw.close();
+    }
+    */
+    private int findInPredicates(ArrayList<Predicate> predicates, String matchingPred) {
+        for(int i=0;i<predicates.size();i++)
+            if(predicates.get(i).getName().equals(matchingPred))
+                return i;
+        return -1;
+    }
+
 
     private void reAddField(ArrayList<Field> fields, Field fld,int i) {
         fields.add(i,fld);
@@ -192,15 +277,32 @@ public class FieldMatcher {
         return(fld);
     }
 
-    public void readAll() {
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample1.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample2.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample3.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample4.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample5.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample6.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample7.yml","");
-        readSingleDataset("/home/pant/Desktop/slipo/sample_YML_mappings/sample8.yml","");
+    public void readAll(ArrayList<String> yamls, ArrayList<String> csvs) throws IOException {
+        for(int i=0;i<yamls.size();i++)
+            readSingleDataset(yamls.get(i), csvs.get(i));
+    }
+
+    public void readAllFromFolder(String folderPath) throws IOException {
+
+    }
+
+    //constructs features for a new fields and calls predict
+    public void giveMatchings(String csvPath,String outPath) throws IOException {
+        FileReader filereader = null;
+        filereader = new FileReader(csvPath);
+        CSVReader csvReader = new CSVReader(filereader,'|');
+        String[] fieldNames = csvReader.readNext();
+        boolean[][] feats = scanCSV(csvReader,fieldNames);
+        ArrayList<Field> fields = new ArrayList<Field>();
+        for(int i=0;i<fieldNames.length;i++)
+            fields.add(new Field(fieldNames[i], feats[i]));
+        ArrayList<String> preds = new ArrayList<String>();
+        for(Field fld:fields)
+            preds.add(predict(fld));
+        PrintWriter pw = new PrintWriter(outPath);
+        for(int i=0;i<fields.size();i++)
+            pw.println(fields.get(i).getName()+" -> "+preds.get(i));
+        pw.close();
     }
 }
 

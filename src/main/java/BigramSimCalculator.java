@@ -1,12 +1,36 @@
 import java.util.ArrayList;
 import java.util.List;
 
+/*
+Class that calculates the string similarity between keywords
+Takes values in [0,1]
+ */
 public class BigramSimCalculator {
 
     static double calcBigramSim(String s1, String s2){
-        List<char[]> b1 = bigram(s1);
-        List<char[]> b2 = bigram(s2);
-        return bigramSimScore(b1,b2);
+
+        if(s1.length()>1 && s2.length()>1) {
+            List<char[]> b1 = bigram(s1);
+            List<char[]> b2 = bigram(s2);
+            return bigramSimScore(b1, b2);
+        }
+        else if(s1.length()==1 && s2.length()==1)
+            if(s2.contains(s1))
+                return(1);
+            else
+                return(0);
+        else if(s1.length()==1 && s2.length()>1)
+            if(s2.contains(s1))
+                return(1/(s2.length()+1));
+            else
+                return(0);
+        else
+            if(s1.contains(s2))
+                return(1/(s1.length()+1));
+            else
+                return(0);
+
+
     }
 
     public static List<char[]> bigram(String input) {

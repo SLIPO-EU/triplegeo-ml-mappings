@@ -1,11 +1,19 @@
 # triplegeo-ml-mappings
 
-Receives as input a csv file and maps its column to the ontology of slipo. Entry class is FieldMatcherExec, which can be called in the following two ways:
+Receives as input a csv file and maps its column to the ontology of slipo. Functionality implemented in FieldMatcher object.
 
-FieldMatcherExec.jar -train folder_in models
 
-FieldMatcherExec.jar -predict models file_in.csv predictions out
+Functions of FieldMatcher to use:
 
--train receives a folder with csv files and their yaml mappings, and produces a file with serialized models
+public void makeModels(String inFolderPath, String outModelsPath):
 
--predict receives a file with serialized models and a csv and produces a human readable text file with mappings, which is read by triple-geo 
+Reads all .yml .csv from inFolderPath. In the folder, each .yml should be matche to a .csv.
+
+Serializes a FieldMatcher object containinf the trained classifiers to outModelsPath.
+
+public Mappings giveMatchings(String csvPath):
+
+Receives the path to a .csv. Produces a Mappings object with the mappings for each column of the .csv.
+
+Mappings object is described in Mappings.java
+

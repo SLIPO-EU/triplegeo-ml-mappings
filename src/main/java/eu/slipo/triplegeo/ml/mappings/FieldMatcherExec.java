@@ -1,38 +1,28 @@
 package eu.slipo.triplegeo.ml.mappings;
-import java.io.IOException;
-import java.util.ArrayList;
+import java.io.*;
 
-/*Class that exposes the functionality of FieldMatcher. It is is called in the following two ways:
-
-FieldMatcherExec.jar -train folder_in models
-FieldMatcherExec.jar -predict models file_in.csv predictions out
-
--train receives a folder with csv files and their yaml mappings, and produces a file with serialized models
--predict receives a file with serialized models and a csv and produces a human readable text file with mappings, which is read by triple-geo */
+//class with main to run from IDE
 public class FieldMatcherExec {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
 
+    //FieldMatcher fm = new FieldMatcher();
+    //fm.makeModels(args[0],args[1]);
 
-        if(args[1].equals("-train")){
-            FieldMatcher fm = new FieldMatcher();
-            fm.readAllFromFolder(args[2]);
-            fm.trainClassifiers();
-            writeFMToFile(fm,args[3]);
-        }
-
-        if(args[1].equals("-test")) {
-            FieldMatcher fm = readFMFromFile(args[2]);
-            fm.giveMatchings(args[3],args[4]);
-        }
+    FieldMatcher fm = readFMFromFile(args[0]);
+    Mappings maps = fm.giveMatchings(args[1]);
 
     }
 
-    private static FieldMatcher readFMFromFile(String path) {
-        return null;
+    private static FieldMatcher readFMFromFile(String path) throws IOException, ClassNotFoundException {
+        FileInputStream fileInputStream = new FileInputStream(path);
+        BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+        ObjectInputStream objectInputStream = new ObjectInputStream(bufferedInputStream);
+        FieldMatcher fm = (FieldMatcher)objectInputStream.readObject();
+        objectInputStream.close();
+        fileInputStream.close();
+        return fm;
     }
 
-    private static void writeFMToFile(FieldMatcher fm, String path) {
 
-    }
 }

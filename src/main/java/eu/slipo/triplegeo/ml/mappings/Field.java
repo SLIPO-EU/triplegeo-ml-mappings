@@ -1,4 +1,5 @@
 package eu.slipo.triplegeo.ml.mappings;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -6,7 +7,7 @@ import java.util.Map;
 Contains the data for each field (csv column)
  */
 
-public class Field {
+public class Field implements Serializable {
 
     //field name (keyword)
     private String name;

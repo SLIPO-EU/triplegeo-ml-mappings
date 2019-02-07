@@ -3,14 +3,24 @@ import com.opencsv.CSVIterator;
 import com.opencsv.CSVReader;
 import org.apache.commons.lang3.StringUtils;
 import org.yaml.snakeyaml.Yaml;
+
 import java.io.*;
 import java.util.*;
 
-/* Class that produces predicate matchings for each column of a new csv file.
-The class maintains a binary classifier for each predicate. Performs two
-functions: 1) trains the models given a set of csvs and mappings and
-2) predicts the mappings of a new csv based on the trained models */
-public class FieldMatcher {
+/*
+Class that produces predicate matchings for each column of a new csv file.
+
+Functions to use:
+
+public void makeModels(String inFolderPath, String outModelsPath):
+Reads all .yml .csv from inFolderPath. In the folder, each .yml should be matche to a .csv.
+Serializes a FieldMatcher object containinf the trained classifiers to outModelsPath.
+
+public Mappings giveMatchings(String csvPath):
+Receives the path to a csv. Produces a Mappings object with the mappings for each csv column.
+Mappings object is described in Mappings.java
+*/
+public class FieldMatcher implements Serializable {
 
     ArrayList<Predicate> predicates;
     ArrayList<Field> fields;
@@ -177,29 +187,41 @@ public class FieldMatcher {
         return false;
     }
     //trains one classifier for each predicate
-    public void trainClassifiers(){
+    public void trainClassifiers() throws Exception {
         for(Predicate pred:predicates)
             pred.trainClassifier(fields);
     }
 
-    //for a given input field, runs the classifiers for each predicate
-    //and selects the one that returns the highest matching probability
-    public String predict(Field fld){
-        double[] probs = new double[predicates.size()];
-        for(int i=0;i<predicates.size();i++)
-            probs[i] = predicates.get(i).predict(fld);
-        double max = Double.NEGATIVE_INFINITY;
-        int maxInd = -1;
-        for(int i=0;i<probs.length;i++)
-            if(probs[i]>max){
-                max = probs[i];
-                maxInd = i;
-            }
-        return(predicates.get(maxInd).getName());
+    //for a given input field, runs the classifiers for each predicate, returns predicate:probability map
+    public LinkedHashMap<String,Double> predict(Field fld) throws Exception {
+        LinkedHashMap<String,Double> res = new LinkedHashMap<String, Double>();
+        for(Predicate pred:predicates)
+            res.put(pred.getName(),pred.predict(fld));
+        return sortPreds(res);
     }
 
-    //evaluates the model through leave-one-out cross validation
-    public double evaluate(String outPath) {
+    private LinkedHashMap<String,Double> sortPreds(LinkedHashMap<String,Double> res) {
+
+
+        List<Map.Entry<String, Double>> entries = new ArrayList<Map.Entry<String, Double>>(res.entrySet());
+        Collections.sort(entries, new Comparator<Map.Entry<String, Double>>() {
+            public int compare(Map.Entry<String, Double> a, Map.Entry<String, Double> b) {
+                return b.getValue().compareTo(a.getValue());
+            }
+        });
+
+        LinkedHashMap<String, Double> sortedMap = new LinkedHashMap<String, Double>();
+        for (Map.Entry<String, Double> entry : entries) {
+            sortedMap.put(entry.getKey(), entry.getValue());
+        }
+
+        return sortedMap;
+    }
+
+
+
+        //evaluates the model through leave-one-out cross validation
+   /*public double evaluate(String outPath) throws Exception {
         Field test = null;
         ArrayList<String> preds = new ArrayList<String>();
         String pred;
@@ -227,7 +249,7 @@ public class FieldMatcher {
         return (acc);
     }
 
-   /* private void printConfusionMatrix(ArrayList<Field> fields, ArrayList<String> preds,double acc) {
+    private void printConfusionMatrix(ArrayList<Field> fields, ArrayList<String> preds,double acc) {
         double[][] confMat = new double[predicates.size()][predicates.size()];
         for (int i = 0; i < fields.size(); i++) {
             confMat[findInPredicates(predicates, fields.get(i).getMatchingPred())][findInPredicates(predicates, preds.get(i))]++;
@@ -256,6 +278,7 @@ public class FieldMatcher {
         pw.close();
     }
     */
+
     private int findInPredicates(ArrayList<Predicate> predicates, String matchingPred) {
         for(int i=0;i<predicates.size();i++)
             if(predicates.get(i).getName().equals(matchingPred))
@@ -275,35 +298,104 @@ public class FieldMatcher {
         Field fld = fields.remove(i);
         for(Predicate pred:predicates)
             pred.removeField(fld);
-        return(fld);
+        return fld;
     }
 
-    public void readAll(ArrayList<String> yamls, ArrayList<String> csvs) throws IOException {
-        for(int i=0;i<yamls.size();i++)
-            readSingleDataset(yamls.get(i), csvs.get(i));
+    public void readAll(String folderPath, HashMap<String, String> nameMap) throws IOException {
+        for(Map.Entry<String,String> name:nameMap.entrySet())
+            readSingleDataset(folderPath+name.getKey(), folderPath+name.getValue());
     }
 
+    //Reads all .yml .csv from a file. It matches each .yml to a .csv . If not matching .csv exists it does not use the .yml.
     public void readAllFromFolder(String folderPath) throws IOException {
 
+        File f = new File(folderPath);
+        String[] namesAr = f.list();
+        ArrayList<String> names = new ArrayList<String>(Arrays.asList(namesAr));
+        ArrayList<String> yamls = getYamls(names);
+        ArrayList<String> csvs = getCsvs(names);
+        HashMap<String,String> nameMap = alignLists(yamls,csvs);
+
+        readAll(folderPath,nameMap);
+
+    }
+
+   private HashMap alignLists(ArrayList<String> yamls, ArrayList<String> csvs) {
+        HashMap<String,String> nameMap = new HashMap<String, String>();
+        int ind;
+        for(String y:yamls) {
+            ind = matchCsv(y,csvs);
+            if ( ind > -1 )
+                nameMap.put(y,csvs.get(ind));
+        }
+        return nameMap;
+    }
+
+
+
+    private int matchCsv(String y, ArrayList<String> csvs) {
+        for(int i=0;i<csvs.size();i++)
+            if(stripEnd(y).equals(stripEnd(csvs.get(i))))
+                return i;
+        return -1;
+    }
+
+    private String stripEnd(String s) {
+        return s.substring(0,s.length()-4);
+    }
+
+    private ArrayList<String> getCsvs(ArrayList<String> names) {
+        ArrayList<String> csvs = new ArrayList<String>();
+        for(String n:names)
+            if(n.contains(".csv"))
+                csvs.add(n);
+        return csvs;
+    }
+
+    private ArrayList<String> getYamls(ArrayList<String> names) {
+        ArrayList<String> yamls = new ArrayList<String>();
+        for(String n:names)
+            if(n.contains(".yml"))
+                yamls.add(n);
+        return yamls;
     }
 
     //constructs features for a new fields and calls predict
-    public void giveMatchings(String csvPath,String outPath) throws IOException {
+    public Mappings giveMatchings(String csvPath) throws Exception {
+
+        //read
         FileReader filereader = null;
         filereader = new FileReader(csvPath);
         CSVReader csvReader = new CSVReader(filereader,'|');
         String[] fieldNames = csvReader.readNext();
+
+        //preproc
         boolean[][] feats = scanCSV(csvReader,fieldNames);
         ArrayList<Field> fields = new ArrayList<Field>();
         for(int i=0;i<fieldNames.length;i++)
             fields.add(new Field(fieldNames[i], feats[i]));
-        ArrayList<String> preds = new ArrayList<String>();
+
+        //predict
+        Mappings maps = new Mappings();
         for(Field fld:fields)
-            preds.add(predict(fld));
-        PrintWriter pw = new PrintWriter(outPath);
-        for(int i=0;i<fields.size();i++)
-            pw.println(fields.get(i).getName()+" -> "+preds.get(i));
-        pw.close();
+            maps.addFieldMap(fld.getName(),predict(fld));
+
+        return maps;
+
+    }
+
+    public void writeFMToFile(String path) throws IOException {
+        FileOutputStream fileOut = new FileOutputStream(path);
+        ObjectOutputStream out = new ObjectOutputStream(fileOut);
+        out.writeObject(this);
+        out.close();
+        fileOut.close();
+    }
+
+    public void makeModels(String inFolderPath,String outModelsPath) throws Exception {
+        readAllFromFolder(inFolderPath);
+        trainClassifiers();
+        writeFMToFile(outModelsPath);
     }
 }
 

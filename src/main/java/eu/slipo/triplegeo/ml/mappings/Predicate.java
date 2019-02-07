@@ -5,6 +5,8 @@ import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
+
+import java.io.Serializable;
 import java.util.*;
 
 /*
@@ -13,7 +15,7 @@ It contains the model, that you want to change.
 It also contains a List with all the field names previously matched to this predicate.
 Uses the WEKA library.
  */
-public class Predicate {
+public class Predicate implements Serializable {
 
     private String name;
     private ArrayList<String> keywords;
@@ -54,7 +56,7 @@ public class Predicate {
     //constructs the training set and trains the model
     //recieves as input all observed fields, keep only those that match
     //the specific predicate
-    public void trainClassifier(ArrayList<Field> fields) {
+    public void trainClassifier(ArrayList<Field> fields) throws Exception {
 
         //constructs the training set in the way require for WEKA
         //you should check a tutorial for WEKA
@@ -106,13 +108,9 @@ public class Predicate {
         //builds model
         //also prints the model
         //can also perform cross validation to evaluate it
-        try {
-            mdl.buildClassifier(trainSet);
-            System.out.println(mdl);
+        mdl.buildClassifier(trainSet);
+          //  System.out.println(mdl);
         //  performCV();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
 
     }
 
@@ -152,7 +150,7 @@ public class Predicate {
         return sim;
     }
 
-    public void performCV(){
+   /* public void performCV(){
         Logistic mdl = new Logistic();
         Evaluation eval = null;
         try {
@@ -166,22 +164,21 @@ public class Predicate {
         }
 
     }
-
+*/
     //predict performs the same procedure as train but for only one field
-    public double predict(Field fld){
+    public double predict(Field fld) throws Exception {
+
         double[] sims = calcAllSimsUnique(fld.getName());
+
         Instance inst = new DenseInstance(keywordsUnique.size()+fld.getFeats().length+1);
         inst.setDataset(trainSet);
         for(int i=0;i<sims.length;i++)
             inst.setValue(i,sims[i]);
         for(int i=0;i<fld.getFeats().length;i++)
             inst.setValue(sims.length+i,fld.getFeat(i));
-        double[] pred = null;
-        try {
-            pred = mdl.distributionForInstance(inst);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+
+        double[] pred = mdl.distributionForInstance(inst);
+
         //return probability of positive label
         return(pred[1]);
     }

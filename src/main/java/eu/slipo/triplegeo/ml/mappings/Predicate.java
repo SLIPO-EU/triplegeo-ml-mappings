@@ -1,3 +1,4 @@
+package eu.slipo.triplegeo.ml.mappings;
 import weka.classifiers.evaluation.Evaluation;
 import weka.classifiers.functions.Logistic;
 import weka.core.Attribute;

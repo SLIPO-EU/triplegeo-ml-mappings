@@ -1,3 +1,4 @@
+package eu.slipo.triplegeo.ml.mappings;
 import com.opencsv.CSVIterator;
 import com.opencsv.CSVReader;
 import org.apache.commons.lang3.StringUtils;

@@ -1,3 +1,4 @@
+package eu.slipo.triplegeo.ml.mappings;
 import java.util.ArrayList;
 import java.util.Map;
 

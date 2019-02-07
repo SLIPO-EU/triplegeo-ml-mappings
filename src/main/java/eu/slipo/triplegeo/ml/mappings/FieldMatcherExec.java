@@ -1,3 +1,4 @@
+package eu.slipo.triplegeo.ml.mappings;
 import java.io.IOException;
 import java.util.ArrayList;
 

@@ -18,3 +18,20 @@ public Mappings giveMatchings(String csvPath)
 ```
 
 Receives the path to a .csv file. Produces a [Mappings](src/main/java/eu/slipo/triplegeo/ml/mappings/Mappings.java) object with the mappings for each column of the .csv file.
+
+
+## Build
+
+To build the project:
+
+`mvn clean install`
+
+## Run
+
+To create model:
+
+`java -jar target/field-matcher.jar -d "<path to data and mapping files>" -o "<path to model file>"`
+
+To compute field mappings:
+
+`java -jar target/field-matcher.jar -m "<path to model file>" -f "<path to input data file>"`

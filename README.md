@@ -1,19 +1,20 @@
 # triplegeo-ml-mappings
 
-Receives as input a csv file and maps its column to the ontology of slipo. Functionality implemented in FieldMatcher object.
+Receives as input a csv file and maps its column to the ontology of SLIPO. Functionality implemented in [FieldMatcher](src/main/java/eu/slipo/triplegeo/ml/mappings/FieldMatcher.java) object.
 
 
-Functions of FieldMatcher to use:
+## FieldMatcher Functions
 
-public void makeModels(String inFolderPath, String outModelsPath):
+```java
+public void makeModels(String inFolderPath, String outModelsPath)
+```
 
-Reads all .yml .csv from inFolderPath. In the folder, each .yml should be matche to a .csv.
+Reads all .yml and .csv from `inFolderPath`. In the folder, each .yml mapping file should be matched to a .csv data file
 
-Serializes a FieldMatcher object containinf the trained classifiers to outModelsPath.
+Serializes a [FieldMatcher](src/main/java/eu/slipo/triplegeo/ml/mappings/FieldMatcher.java) object containing the trained classifiers to `outModelsPath`.
 
-public Mappings giveMatchings(String csvPath):
+```java
+public Mappings giveMatchings(String csvPath)
+```
 
-Receives the path to a .csv. Produces a Mappings object with the mappings for each column of the .csv.
-
-Mappings object is described in Mappings.java
-
+Receives the path to a .csv file. Produces a [Mappings](src/main/java/eu/slipo/triplegeo/ml/mappings/Mappings.java) object with the mappings for each column of the .csv file.

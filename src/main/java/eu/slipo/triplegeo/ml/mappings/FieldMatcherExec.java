@@ -1,10 +1,5 @@
 package eu.slipo.triplegeo.ml.mappings;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -39,26 +34,16 @@ public class FieldMatcherExec {
             fm.makeModels(cmd.getOptionValue("d"), cmd.getOptionValue("o"));
         } else if ((cmd.hasOption("m")) && (cmd.hasOption("f"))) {
             // Suggest
-            FieldMatcher fm = readFMFromFile(cmd.getOptionValue("m"));
+            FieldMatcher fm = FieldMatcher.create(cmd.getOptionValue("m"));
             Mappings mappings = fm.giveMatchings(cmd.getOptionValue("f"));
-            for (String field : mappings.maps.keySet()) {
+            for (String field : mappings.getFields().keySet()) {
                 System.out.printf(" * %-20s %n", field);
-                for (String key : mappings.maps.get(field).keySet()) {
-                    System.out.printf("   %-20s %-20s %n", key, mappings.maps.get(field).get(key));
+                for (String key : mappings.getFields().get(field).keySet()) {
+                    System.out.printf("   %-20s %-20s %n", key, mappings.getFields().get(field).get(key));
                 }
             }
         }
 
-    }
-
-    private static FieldMatcher readFMFromFile(String path) throws IOException, ClassNotFoundException {
-        FileInputStream fileInputStream = new FileInputStream(path);
-        BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
-        ObjectInputStream objectInputStream = new ObjectInputStream(bufferedInputStream);
-        FieldMatcher fm = (FieldMatcher) objectInputStream.readObject();
-        objectInputStream.close();
-        fileInputStream.close();
-        return fm;
     }
 
 }

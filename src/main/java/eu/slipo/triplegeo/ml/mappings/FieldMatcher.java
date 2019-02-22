@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.yaml.snakeyaml.Yaml;
 
 import com.opencsv.CSVIterator;
+import com.opencsv.CSVParser;
 import com.opencsv.CSVReader;
 
 /**
@@ -34,8 +35,13 @@ public class FieldMatcher implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    ArrayList<Predicate> predicates;
-    ArrayList<Field> fields;
+    private char delimiter = '|';
+
+    private char quote = '"';
+
+    private ArrayList<Predicate> predicates;
+
+    private ArrayList<Field> fields;
 
     public FieldMatcher() {
         predicates = new ArrayList<Predicate>();
@@ -62,6 +68,26 @@ public class FieldMatcher implements Serializable {
         }
     }
 
+    public char getDelimiter() {
+        return delimiter;
+    }
+
+    public void setDelimiter(char delimiter) {
+        this.delimiter = delimiter;
+    }
+
+    public char getQuote() {
+        return quote;
+    }
+
+    public void setQuote(String quote) {
+        if (quote == null) {
+            this.quote = CSVParser.NULL_CHARACTER;
+        } else {
+            this.quote = quote.charAt(0);
+        }
+    }
+
     /**
      * Reads a dataset and adds observed predicates and fields
      *
@@ -77,7 +103,7 @@ public class FieldMatcher implements Serializable {
         FileReader filereader = new FileReader(csvPath);
         Map<String, Object> data = yaml.load(inputStream);
         Set<String> keys = data.keySet();
-        CSVReader csvReader = new CSVReader(filereader, '|');
+        CSVReader csvReader = new CSVReader(filereader, delimiter, quote);
         String[] fieldNames = csvReader.readNext();
 
         // produces features from field content
@@ -452,7 +478,7 @@ public class FieldMatcher implements Serializable {
         //read
         FileReader filereader = null;
         filereader = new FileReader(csvPath);
-        CSVReader csvReader = new CSVReader(filereader,'|');
+        CSVReader csvReader = new CSVReader(filereader, delimiter, quote);
         String[] fieldNames = csvReader.readNext();
 
         //preproc

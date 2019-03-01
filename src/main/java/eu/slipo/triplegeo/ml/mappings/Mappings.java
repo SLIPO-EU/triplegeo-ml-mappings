@@ -1,7 +1,10 @@
 package eu.slipo.triplegeo.ml.mappings;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Contains mappings for each column (field) of a CSV file. Member {@link Mappings#fields}
@@ -14,23 +17,39 @@ import java.util.LinkedHashMap;
  */
 public class Mappings {
 
-    private HashMap<String, LinkedHashMap<String, Double>> fields;
+    public static class Field {
 
-    public Mappings() {
-        fields = new HashMap<String, LinkedHashMap<String, Double>>();
+        private String name;
+        private Map<String, Double> predicates;
+
+        public Field(String name, Map<String, Double> predicates) {
+            this.name = name;
+            this.predicates = Collections.unmodifiableMap(predicates);
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public Map<String, Double> getPredicates() {
+            return predicates;
+        }
+
     }
 
-    // add mappings for column "name"
-    public void addFieldMap(String name, LinkedHashMap<String, Double> preds) {
-        fields.put(name, preds);
+    private List<Field> fields = new ArrayList<Field>();
+
+    public void addField(String name, LinkedHashMap<String, Double> predicates) {
+        fields.add(new Field(name, predicates));
     }
 
-    // get mappings for column "name"
-    public LinkedHashMap<String, Double> getFieldMap(String name) {
-        return fields.get(name);
+    public Map<String, Double> getFieldPredicates(String name) {
+        Field field = fields.stream().filter(f -> f.name.equals(name)).findFirst().orElse(null);
+
+        return field == null ? null : field.predicates;
     }
 
-    public HashMap<String, LinkedHashMap<String, Double>> getFields() {
+    public List<Field> getFields() {
         return this.fields;
     }
 

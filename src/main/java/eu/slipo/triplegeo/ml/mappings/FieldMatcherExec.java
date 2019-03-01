@@ -36,10 +36,10 @@ public class FieldMatcherExec {
             // Suggest
             FieldMatcher fm = FieldMatcher.create(cmd.getOptionValue("m"));
             Mappings mappings = fm.giveMatchings(cmd.getOptionValue("f"));
-            for (String field : mappings.getFields().keySet()) {
-                System.out.printf(" * %-20s %n", field);
-                for (String key : mappings.getFields().get(field).keySet()) {
-                    System.out.printf("   %-20s %-20s %n", key, mappings.getFields().get(field).get(key));
+            for (Mappings.Field field : mappings.getFields()) {
+                System.out.printf(" * %-20s %n", field.getName());
+                for (String key : field.getPredicates().keySet()) {
+                    System.out.printf("   %-20s %-20s %n", key, field.getPredicates().get(key));
                 }
             }
         }

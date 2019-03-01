@@ -491,7 +491,7 @@ public class FieldMatcher implements Serializable {
         //predict
         Mappings maps = new Mappings();
         for(Field fld:fields) {
-            maps.addFieldMap(fld.getName(),predict(fld));
+            maps.addField(fld.getName(),predict(fld));
         }
 
         return maps;

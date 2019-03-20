@@ -475,27 +475,31 @@ public class FieldMatcher implements Serializable {
      */
     public Mappings giveMatchings(String csvPath) throws Exception {
 
-        //read
+        // Read field names
         FileReader filereader = null;
         filereader = new FileReader(csvPath);
         CSVReader csvReader = new CSVReader(filereader, delimiter, quote);
         String[] fieldNames = csvReader.readNext();
 
-        //preproc
-        boolean[][] feats = scanCSV(csvReader,fieldNames);
+        // Scan data file
+        boolean[][] feats = scanCSV(csvReader, fieldNames);
         ArrayList<Field> fields = new ArrayList<Field>();
-        for(int i=0;i<fieldNames.length;i++) {
+        for (int i = 0; i < fieldNames.length; i++) {
             fields.add(new Field(fieldNames[i], feats[i]));
         }
 
-        //predict
+        // Create mappings
         Mappings maps = new Mappings();
-        for(Field fld:fields) {
-            maps.addField(fld.getName(),predict(fld));
+        for (Field fld : fields) {
+            // Field names have been converted to upper case. Reset letter case.
+            String name = Arrays.stream(fieldNames)
+                .filter(value -> value.equalsIgnoreCase(fld.getName()))
+                .findFirst()
+                .get();
+            maps.addField(name, predict(fld));
         }
 
         return maps;
-
     }
 
     private void writeFMToFile(String path) throws IOException {
